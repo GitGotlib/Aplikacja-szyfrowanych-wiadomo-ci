@@ -1,0 +1,47 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://localhost}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-https://localhost}
+      SQLITE_PATH: ${SQLITE_PATH:-/var/lib/app/app.sqlite3}
+      MAX_ATTACHMENT_BYTES: ${MAX_ATTACHMENT_BYTES:-26214400}
+      MAX_RECIPIENTS_PER_MESSAGE: ${MAX_RECIPIENTS_PER_MESSAGE:-25}
+      LOGIN_RATE_LIMIT_PER_MINUTE: ${LOGIN_RATE_LIMIT_PER_MINUTE:-10}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-strict}
+
+      # Sekrety: dostarczaj przez Docker secrets lub zmienne środowiskowe w runtime.
+      APP_SECRET_KEY: ${APP_SECRET_KEY}
+      DATA_KEY: ${DATA_KEY}
+      TOTP_KEY_ENCRYPTION_KEY: ${TOTP_KEY_ENCRYPTION_KEY}
+      USER_HMAC_KEY_ENCRYPTION_KEY: ${USER_HMAC_KEY_ENCRYPTION_KEY}
+    volumes:
+      - sqlite_data:/var/lib/app
+    networks:
+      - app_net
+
+  nginx:
+    image: nginx:1.25-alpine
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      # Frontend (statyczne pliki) może być dodany później jako bind mount lub przez własny obraz NGINX z wbudowanym dist/.
+      # - ./frontend/dist:/usr/share/nginx/html:ro
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge
+
+volumes:
+  sqlite_data:
