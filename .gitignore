@@ -2,6 +2,13 @@
 .env.*
 !.env.example
 
+# Local TLS material (never commit)
+/nginx/certs/*
+!/nginx/certs/README.md
+*.pem
+*.key
+*.crt
+
 # Secrets (never commit)
 .secrets/
 
@@ -13,10 +20,26 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+coverage.xml
+htmlcov/
+
+# Logs / temp
+*.log
+*.tmp
+*.temp
 
 # Node/Frontend
 node_modules/
 dist/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Database
 /database/data/
@@ -24,5 +47,27 @@ dist/
 *.sqlite
 *.sqlite3
 
+# Local test artifacts (curl/smoke tests)
+/cookies*.txt
+/_*.txt
+/last_msg_id.txt
+/u*_session.txt
+/u*_register.json
+/u*_login.json
+/u*_login_2fa.json
+/u*_2fa_*.json
+/recipients.json
+/register.json
+/login.json
+/payload.json
+
 # IDE
 .vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Optional local overrides
+docker-compose.override.yml
+docker-compose.local.yml

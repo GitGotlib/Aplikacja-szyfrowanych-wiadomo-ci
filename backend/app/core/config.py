@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import base64
-from pydantic import AnyUrl, Field
+from pydantic import AnyUrl, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=None, extra="forbid")
+    model_config = SettingsConfigDict(env_file=".env", extra="forbid")
 
     app_env: str = Field(default="production", alias="APP_ENV")
     app_name: str = Field(default="secure-messaging-poc", alias="APP_NAME")
@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     lockout_seconds: int = Field(default=10 * 60, alias="LOCKOUT_SECONDS")
 
     def _decode_32b_b64(self, value: str, field_name: str) -> bytes:
+        if value is None or not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{field_name} must be set and non-empty")
         try:
             raw = base64.b64decode(value, validate=True)
         except Exception as exc:  # noqa: BLE001
@@ -45,6 +47,17 @@ class Settings(BaseSettings):
         if len(raw) != 32:
             raise ValueError(f"{field_name} must decode to 32 bytes")
         return raw
+
+    @field_validator("app_secret_key", "data_key", "totp_key_encryption_key", "user_hmac_key_encryption_key")
+    @classmethod
+    def _no_empty_secrets(cls, v: str, info):
+        if v is None or not isinstance(v, str) or not v.strip():
+            raise ValueError(f"{info.field_name} must be set and non-empty")
+        return v
+
+    @property
+    def app_secret_key_bytes(self) -> bytes:
+        return self._decode_32b_b64(self.app_secret_key, "APP_SECRET_KEY")
 
     @property
     def data_key_bytes(self) -> bytes:

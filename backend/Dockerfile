@@ -13,14 +13,20 @@ RUN apt-get update \
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Application source will live under backend/app
-COPY backend/app /app/app
+# Install backend package so `app` is importable regardless of CWD.
+# This makes local runs (`uvicorn app.main:app`) deterministic.
+COPY backend /app/backend
+RUN pip install --no-cache-dir -e /app/backend
 
-# Non-root runtime
+# Versioned DB schema (authoritative, auditable)
+COPY database /app/database
+
+COPY backend/entrypoint.sh /app/entrypoint.sh
+RUN chmod 755 /app/entrypoint.sh
+
+# Create non-root user; runtime process will drop privileges via entrypoint.
 RUN useradd -r -u 10001 appuser
-USER 10001
 
 EXPOSE 8000
 
-# Entry point expects FastAPI application at app.main:app (to be implemented later).
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/app/entrypoint.sh"]

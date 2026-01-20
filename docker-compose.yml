@@ -14,11 +14,11 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       COOKIE_SAMESITE: ${COOKIE_SAMESITE:-strict}
 
-      # Sekrety: dostarczaj przez Docker secrets lub zmienne środowiskowe w runtime.
-      APP_SECRET_KEY: ${APP_SECRET_KEY}
-      DATA_KEY: ${DATA_KEY}
-      TOTP_KEY_ENCRYPTION_KEY: ${TOTP_KEY_ENCRYPTION_KEY}
-      USER_HMAC_KEY_ENCRYPTION_KEY: ${USER_HMAC_KEY_ENCRYPTION_KEY}
+      # Sekrety: wymagane (base64 32B). Compose ma przerwać uruchomienie, jeśli brak.
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required (base64, 32 bytes)}
+      DATA_KEY: ${DATA_KEY:?DATA_KEY is required (base64, 32 bytes)}
+      TOTP_KEY_ENCRYPTION_KEY: ${TOTP_KEY_ENCRYPTION_KEY:?TOTP_KEY_ENCRYPTION_KEY is required (base64, 32 bytes)}
+      USER_HMAC_KEY_ENCRYPTION_KEY: ${USER_HMAC_KEY_ENCRYPTION_KEY:?USER_HMAC_KEY_ENCRYPTION_KEY is required (base64, 32 bytes)}
     volumes:
       - sqlite_data:/var/lib/app
     networks:
@@ -28,16 +28,37 @@ services:
     image: nginx:1.25-alpine
     depends_on:
       - backend
+    environment:
+      # dev: expects nginx/certs/tls.(crt|key)
+      # prod: expects nginx/certs/(fullchain.pem|privkey.pem)
+      TLS_MODE: ${TLS_MODE:-dev}
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Config selection: default is nginx/nginx.conf (DEV).
+      - ./nginx/${NGINX_CONFIG_FILE:-nginx.conf}:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/check-certs.sh:/etc/nginx/check-certs.sh:ro
       # Frontend (statyczne pliki) może być dodany później jako bind mount lub przez własny obraz NGINX z wbudowanym dist/.
       # - ./frontend/dist:/usr/share/nginx/html:ro
     networks:
       - app_net
+    # Fail fast with a readable message if certs are missing.
+    command: ["/bin/sh", "-c", "sh /etc/nginx/check-certs.sh; exec nginx -g 'daemon off;'" ]
+
+  curl:
+    image: curlimages/curl:8.5.0
+    profiles: ["test"]
+    depends_on:
+      - nginx
+    networks:
+      - app_net
+    volumes:
+      - ./docker:/work/docker:ro
+    working_dir: /work
+    entrypoint: ["sh", "/work/docker/smoke-test-container.sh"]
+
 
 networks:
   app_net:

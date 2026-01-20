@@ -21,10 +21,19 @@ def init_sqlite_schema() -> None:
     if not db_path.exists():
         db_path.touch(mode=0o600)
 
-    # Resolve schema file packaged in the backend image.
-    schema_path = Path(__file__).resolve().parents[3] / "database" / "schema.sql"
-    if not schema_path.exists():
-        raise RuntimeError("database/schema.sql not found in runtime image")
+    # Resolve schema file (works both locally and in Docker).
+    schema_path: Path | None = None
+    checked: list[str] = []
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / "database" / "schema.sql"
+        checked.append(str(candidate))
+        if candidate.exists():
+            schema_path = candidate
+            break
+    if schema_path is None:
+        raise RuntimeError(
+            "database/schema.sql not found. Checked:\n- " + "\n- ".join(checked)
+        )
 
     sql = schema_path.read_text(encoding="utf-8")
 

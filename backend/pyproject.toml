@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "secure-messaging-backend"
+version = "0.1.0"
+description = "FastAPI backend for encrypted messaging POC"
+requires-python = ">=3.12"
+
+# Runtime deps are intentionally managed in the repo-level requirements.txt.
+# The editable install exists to make imports (package `app`) stable regardless of CWD.
+
+[tool.setuptools]
+packages = ["app"]
