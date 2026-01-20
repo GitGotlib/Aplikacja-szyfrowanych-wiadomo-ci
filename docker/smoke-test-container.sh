@@ -35,7 +35,7 @@ REG_CODE="$(curl -sk -o "$TMP_DIR/register.out" -w '%{http_code}' \
   -H 'Content-Type: application/json' \
   --data-binary "@$TMP_DIR/register.json")"
 
-if [ "$REG_CODE" != "200" ]; then
+if [ "$REG_CODE" != "200" ] && [ "$REG_CODE" != "201" ]; then
   say "[smoke] FAIL register: HTTP $REG_CODE"
   sed -n '1,200p' "$TMP_DIR/register.out" || true
   exit 1

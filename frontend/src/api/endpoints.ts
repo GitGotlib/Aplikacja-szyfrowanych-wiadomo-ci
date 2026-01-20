@@ -13,8 +13,9 @@ import {
 import { apiDeleteJson, apiFetchJson, apiPostForm, apiPostJson } from './http';
 
 export const api = {
-  register: (payload: RegisterRequest) => apiPostJson<RegisterResponse>('/api/users/register', payload),
+  register: (payload: RegisterRequest) => apiPostJson<RegisterResponse>('/api/auth/register', payload),
   login: (payload: LoginRequest) => apiPostJson<LoginResponse>('/api/auth/login', payload),
+  login2fa: (payload: LoginRequest) => apiPostJson<LoginResponse>('/api/auth/login/2fa', payload),
   logout: () => apiPostJson<{ ok: boolean }>('/api/auth/logout', {}),
   me: () => apiFetchJson<MeResponse>('/api/users/me'),
 

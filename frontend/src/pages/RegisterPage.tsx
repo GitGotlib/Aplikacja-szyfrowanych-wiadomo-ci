@@ -10,7 +10,14 @@ import { ApiError } from '../api/errors';
 const schema = z.object({
   email: z.string().email('Nieprawidłowy email'),
   username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_\-]+$/, 'Dozwolone: litery, cyfry, _ i -'),
-  password: z.string().min(12, 'Min. 12 znaków').max(256),
+  password: z
+    .string()
+    .min(12, 'Min. 12 znaków')
+    .max(256)
+    .regex(/[a-z]/, 'Wymagana mała litera')
+    .regex(/[A-Z]/, 'Wymagana duża litera')
+    .regex(/[0-9]/, 'Wymagana cyfra')
+    .regex(/[^A-Za-z0-9]/, 'Wymagany znak specjalny'),
 });
 
 type FormData = z.infer<typeof schema>;

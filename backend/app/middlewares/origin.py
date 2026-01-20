@@ -10,13 +10,20 @@ def _normalize_origin(origin: str) -> str:
     return origin.rstrip("/")
 
 
+def _parse_allowed_origins(value: str) -> set[str]:
+    # Comma-separated list.
+    return {_normalize_origin(v.strip()) for v in (value or "").split(",") if v.strip()}
+
+
 async def origin_check_middleware(request: Request, call_next):
     # When using cookie-based auth, protect state-changing methods against CSRF
     # via strict Origin checking. This assumes frontend is served from PUBLIC_BASE_URL.
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         origin = request.headers.get("Origin")
         if origin is not None:
-            if _normalize_origin(origin) != _normalize_origin(str(settings.public_base_url)):
+            allowed = _parse_allowed_origins(settings.cors_allow_origins)
+            allowed.add(_normalize_origin(str(settings.public_base_url)))
+            if _normalize_origin(origin) not in allowed:
                 raise AuthorizationError("Invalid origin")
 
     return await call_next(request)

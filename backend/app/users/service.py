@@ -24,7 +24,11 @@ def create_user(db: Session, email: str, username: str, password: str) -> User:
 
     user_id = str(uuid.uuid4())
 
-    password_hash = hash_password(password)
+    try:
+        password_hash = hash_password(password)
+    except ValueError as exc:
+        # Preserve the policy but return a controlled client error.
+        raise ValidationError(str(exc)) from exc
     now = utcnow()
 
     # Per-user HMAC key is generated server-side and stored encrypted at rest.

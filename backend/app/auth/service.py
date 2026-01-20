@@ -27,7 +27,14 @@ def _random_delay_on_failure() -> None:
     time.sleep(0.5)
 
 
-def authenticate_user(db: Session, email: str, password: str, totp_code: str | None) -> User:
+def authenticate_user(
+    db: Session,
+    email: str,
+    password: str,
+    totp_code: str | None,
+    *,
+    allow_2fa_challenge: bool = False,
+) -> tuple[User, bool]:
     # Uniform error surface: always raise AuthenticationError on auth failure.
     user = db.execute(select(User).where(User.email == email.strip().lower())).scalar_one_or_none()
     if user is None:
@@ -50,6 +57,9 @@ def authenticate_user(db: Session, email: str, password: str, totp_code: str | N
     # If TOTP is enabled, enforce it.
     if user.totp_enabled:
         if totp_code is None:
+            # Primary factor OK, but second factor is required.
+            if allow_2fa_challenge:
+                return user, True
             _random_delay_on_failure()
             raise AuthenticationError("invalid")
 
@@ -73,7 +83,7 @@ def authenticate_user(db: Session, email: str, password: str, totp_code: str | N
     user.last_login_at = utcnow()
     user.updated_at = utcnow()
     db.commit()
-    return user
+    return user, False
 
 
 def create_session(db: Session, user: User, ip_address: str | None, user_agent: str | None) -> tuple[str, UserSession]:

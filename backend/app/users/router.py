@@ -13,7 +13,7 @@ from app.db.models import User
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.post("/register", response_model=RegisterResponse)
+@router.post("/register", response_model=RegisterResponse, status_code=201)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> RegisterResponse:
     user = create_user(db, email=payload.email, username=payload.username, password=payload.password)
     return RegisterResponse(user=UserPublic(id=user.id, email=user.email, username=user.username))

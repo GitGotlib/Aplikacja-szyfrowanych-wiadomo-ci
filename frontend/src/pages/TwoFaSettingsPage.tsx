@@ -6,6 +6,7 @@ import { api } from '../api/endpoints';
 import { ApiError } from '../api/errors';
 import type { TwoFaSetupResponse } from '../types/dto';
 import { FormField } from '../components/FormField';
+import { QRCodeSVG } from 'qrcode.react';
 
 const codeSchema = z.object({
   code: z.string().regex(/^[0-9]{6,8}$/, 'Kod 6-8 cyfr'),
@@ -92,10 +93,17 @@ export function TwoFaSettingsPage() {
 
       {setup ? (
         <div className="alert" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ background: 'white', padding: 10, borderRadius: 10 }}>
+              <QRCodeSVG value={setup.provisioning_uri} size={180} />
+            </div>
+            <div style={{ flex: 1, minWidth: 260 }}>
           <div><b>Secret:</b> {setup.secret}</div>
           <div style={{ marginTop: 8 }}>
             <b>Provisioning URI:</b>
             <div style={{ wordBreak: 'break-all' }}>{setup.provisioning_uri}</div>
+          </div>
+            </div>
           </div>
         </div>
       ) : null}

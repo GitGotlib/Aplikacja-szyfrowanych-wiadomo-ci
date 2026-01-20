@@ -11,6 +11,8 @@ from app.core.exceptions import AuthenticationError
 from app.db.session import get_db
 from app.db.models import User
 from app.middlewares.rate_limit import FixedWindowRateLimiter
+from app.users.schemas import RegisterRequest, RegisterResponse, UserPublic
+from app.users.service import create_user
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -24,19 +26,60 @@ def _client_ip(request: Request) -> str:
     return request.headers.get("X-Real-IP") or (request.client.host if request.client else "unknown")
 
 
+@router.post("/register", response_model=RegisterResponse, status_code=201)
+def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> RegisterResponse:
+    # Alias for /api/users/register (kept for clarity and backward compatibility).
+    user = create_user(db, email=str(payload.email), username=payload.username, password=payload.password)
+    return RegisterResponse(user=UserPublic(id=user.id, email=user.email, username=user.username))
+
+
 @router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> LoginResponse:
     _login_limiter.check(f"login:{_client_ip(request)}")
 
-    # Always return minimal information.
-    try:
-        user = authenticate_user(db, email=str(payload.email), password=payload.password, totp_code=payload.totp_code)
-    except AuthenticationError:
-        # If user exists and has 2FA, we still do not leak it.
-        raise
+    user, requires_2fa = authenticate_user(
+        db,
+        email=str(payload.email),
+        password=payload.password,
+        totp_code=payload.totp_code,
+        allow_2fa_challenge=True,
+    )
+
+    if requires_2fa:
+        # Do NOT create a session cookie yet.
+        return LoginResponse(requires_2fa=True)
 
     token, _session = create_session(db, user, ip_address=_client_ip(request), user_agent=request.headers.get("User-Agent"))
 
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        path="/",
+        max_age=settings.session_ttl_seconds,
+    )
+    return LoginResponse(requires_2fa=False)
+
+
+@router.post("/login/2fa", response_model=LoginResponse)
+def login_2fa(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> LoginResponse:
+    _login_limiter.check(f"login:{_client_ip(request)}")
+
+    # Here we require the second factor explicitly.
+    user, requires_2fa = authenticate_user(
+        db,
+        email=str(payload.email),
+        password=payload.password,
+        totp_code=payload.totp_code,
+        allow_2fa_challenge=False,
+    )
+    if requires_2fa:
+        # Should never happen when allow_2fa_challenge=False.
+        raise AuthenticationError("invalid")
+
+    token, _session = create_session(db, user, ip_address=_client_ip(request), user_agent=request.headers.get("User-Agent"))
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=token,

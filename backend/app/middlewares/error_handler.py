@@ -22,10 +22,15 @@ async def error_handling_middleware(request: Request, call_next):
         return response
     except RateLimitError:
         return JSONResponse(status_code=429, content={"detail": "Too many requests"}, headers={"X-Request-Id": request_id})
-    except (AuthenticationError, AuthorizationError):
+    except AuthenticationError:
         return JSONResponse(status_code=401, content={"detail": "Authentication required"}, headers={"X-Request-Id": request_id})
-    except ValidationError:
-        return JSONResponse(status_code=400, content={"detail": "Invalid request"}, headers={"X-Request-Id": request_id})
+    except AuthorizationError as exc:
+        # Distinguish authorization (e.g., invalid Origin) from authentication.
+        msg = str(exc) if str(exc) else "Forbidden"
+        return JSONResponse(status_code=403, content={"detail": msg}, headers={"X-Request-Id": request_id})
+    except ValidationError as exc:
+        msg = str(exc) if str(exc) else "Invalid request"
+        return JSONResponse(status_code=400, content={"detail": msg}, headers={"X-Request-Id": request_id})
     except IntegrityError:
         return JSONResponse(status_code=400, content={"detail": "Integrity check failed"}, headers={"X-Request-Id": request_id})
     except AppError:

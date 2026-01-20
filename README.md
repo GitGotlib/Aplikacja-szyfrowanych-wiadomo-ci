@@ -56,6 +56,24 @@ Co robi test:
 - `https://localhost/api/...` – API backendu
 - `https://localhost/` – frontend (UI)
 
+### Rejestracja i logowanie (API)
+
+- Rejestracja:
+	- `POST /api/auth/register` (alias: `POST /api/users/register`)
+	- body JSON: `{ email, username, password }`
+	- sukces: `201 Created`
+
+- Logowanie (bez 2FA lub z kodem):
+	- `POST /api/auth/login`
+	- body JSON: `{ email, password, totp_code? }`
+	- sukces bez 2FA: `200` + cookie sesyjne (HttpOnly)
+	- jeśli konto ma 2FA i nie podano kodu: `200` + `{ "requires_2fa": true }` (bez cookie)
+
+- Logowanie z 2FA (jawny etap):
+	- `POST /api/auth/login/2fa`
+	- body JSON: `{ email, password, totp_code }`
+	- sukces: `200` + cookie sesyjne
+
 Ważne:
 - backend montuje routery pod prefiksem `/api`
 - NGINX **nie przepisuje** ścieżek (brak „magii” z ucinaniem `/api`)

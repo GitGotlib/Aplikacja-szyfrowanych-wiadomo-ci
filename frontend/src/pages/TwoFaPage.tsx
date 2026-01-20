@@ -7,6 +7,7 @@ import { FormField } from '../components/FormField';
 import { useAuth } from '../auth/AuthContext';
 import { ApiError, UnauthorizedError } from '../api/errors';
 import { useQueryParam } from '../hooks/useQueryParam';
+import { api } from '../api/endpoints';
 
 const schema = z.object({
   email: z.string().email('Nieprawidłowy email'),
@@ -32,7 +33,8 @@ export function TwoFaPage() {
   const onSubmit = handleSubmit(async (data) => {
     setSubmitError(null);
     try {
-      await auth.login({ email: data.email, password: data.password, totp_code: data.totp_code });
+      await api.login2fa({ email: data.email, password: data.password, totp_code: data.totp_code });
+      await auth.refreshMe();
       nav(next);
     } catch (e) {
       if (e instanceof UnauthorizedError) {
@@ -47,7 +49,7 @@ export function TwoFaPage() {
     <div className="card">
       <h2>2FA Verification</h2>
       <div className="alert" style={{ marginBottom: 12 }}>
-        Backend nie ujawnia, czy 2FA jest włączone. Jeśli Twoje konto ma 2FA, podaj kod TOTP.
+        Jeśli Twoje konto ma włączone 2FA, po poprawnym haśle backend wymaga kodu TOTP (RFC 6238).
       </div>
       {submitError ? <div className="alert error" style={{ marginBottom: 12 }}>{submitError}</div> : null}
       <form onSubmit={onSubmit}>

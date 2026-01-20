@@ -7,6 +7,7 @@ import { FormField } from '../components/FormField';
 import { useAuth } from '../auth/AuthContext';
 import { ApiError, UnauthorizedError } from '../api/errors';
 import { useQueryParam } from '../hooks/useQueryParam';
+import { api } from '../api/endpoints';
 
 const schema = z.object({
   email: z.string().email('Nieprawidłowy email'),
@@ -31,11 +32,16 @@ export function LoginPage() {
   const onSubmit = handleSubmit(async (data) => {
     setSubmitError(null);
     try {
-      await auth.login({ email: data.email, password: data.password });
+      const res = await api.login({ email: data.email, password: data.password });
+      if (res.requires_2fa) {
+        nav(`/2fa?email=${encodeURIComponent(getValues('email'))}&next=${encodeURIComponent(next)}`);
+        return;
+      }
+      await auth.refreshMe();
       nav(next);
     } catch (e) {
       if (e instanceof UnauthorizedError) {
-        setSubmitError('Nieprawidłowy email/hasło. Jeśli masz włączone 2FA, użyj weryfikacji TOTP.');
+        setSubmitError('Nieprawidłowy email/hasło lub konto zablokowane.');
         return;
       }
       setSubmitError(e instanceof ApiError ? e.message : 'Logowanie nie powiodło się.');
@@ -55,7 +61,7 @@ export function LoginPage() {
         </FormField>
         <div className="row">
           <button type="submit" disabled={formState.isSubmitting}>Login</button>
-          <Link to={`/2fa?email=${encodeURIComponent(getValues('email'))}&next=${encodeURIComponent(next)}`}>Use 2FA</Link>
+          <Link to={`/2fa?email=${encodeURIComponent(getValues('email'))}&next=${encodeURIComponent(next)}`}>Mam kod 2FA</Link>
           <span style={{ color: 'var(--muted)' }}>
             Brak konta? <Link to="/register">Register</Link>
           </span>
