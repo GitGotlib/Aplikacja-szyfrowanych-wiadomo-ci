@@ -25,7 +25,9 @@ services:
       - app_net
 
   nginx:
-    image: nginx:1.25-alpine
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
     depends_on:
       - backend
     environment:
@@ -39,9 +41,7 @@ services:
       # Config selection: default is nginx/nginx.conf (DEV).
       - ./nginx/${NGINX_CONFIG_FILE:-nginx.conf}:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
-      - ./nginx/check-certs.sh:/etc/nginx/check-certs.sh:ro
-      # Frontend (statyczne pliki) może być dodany później jako bind mount lub przez własny obraz NGINX z wbudowanym dist/.
-      # - ./frontend/dist:/usr/share/nginx/html:ro
+      # check-certs is already baked into the image; bind-mount is optional.
     networks:
       - app_net
     # Fail fast with a readable message if certs are missing.

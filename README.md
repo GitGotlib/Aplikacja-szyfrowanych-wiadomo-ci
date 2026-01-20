@@ -54,6 +54,7 @@ Co robi test:
 
 - `https://localhost/healthz` – health-check
 - `https://localhost/api/...` – API backendu
+- `https://localhost/` – frontend (UI)
 
 Ważne:
 - backend montuje routery pod prefiksem `/api`
