@@ -20,8 +20,9 @@ Ten projekt **nie ma** bezpiecznych domyślnych kluczy. Jeśli ich nie podasz, C
 
 ### 2) TLS (DEV)
 
-NGINX w trybie DEV używa self-signed certów:
+NGINX w trybie DEV używa certu serwera podpisanego lokalnym dev CA:
 - wymagane pliki: `nginx/certs/tls.crt` oraz `nginx/certs/tls.key`
+- opcjonalnie generowany jest też `nginx/certs/ca.crt` (żeby dodać do zaufanych CA i nie mieć ostrzeżeń w przeglądarce)
 
 Generacja:
 - Windows PowerShell: `powershell -ExecutionPolicy Bypass -File .\docker\generate-dev-tls.ps1`
