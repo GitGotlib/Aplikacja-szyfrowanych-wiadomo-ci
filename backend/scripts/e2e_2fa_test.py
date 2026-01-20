@@ -22,6 +22,8 @@ def die(msg: str) -> None:
 def main() -> None:
     cfg = Cfg()
 
+    origin = "https://localhost"
+
     rnd = secrets.token_hex(4)
     email = f"u{rnd}@example.com"
     username = f"user{rnd}"
@@ -58,7 +60,11 @@ def main() -> None:
             die(f"[e2e] me failed after login: {r.status_code} {r.text}")
 
         # Setup 2FA (returns secret + provisioning_uri)
-        r = client.post("/api/2fa/setup", json={}, headers={"Content-Type": "application/json"})
+        r = client.post(
+            "/api/2fa/setup",
+            json={},
+            headers={"Content-Type": "application/json", "Origin": origin},
+        )
         if r.status_code != 200:
             die(f"[e2e] 2fa setup failed: {r.status_code} {r.text}")
         setup = r.json()
@@ -68,12 +74,20 @@ def main() -> None:
 
         # Enable 2FA using a valid current TOTP code
         code = pyotp.TOTP(secret).now()
-        r = client.post("/api/2fa/enable", json={"code": code}, headers={"Content-Type": "application/json"})
+        r = client.post(
+            "/api/2fa/enable",
+            json={"code": code},
+            headers={"Content-Type": "application/json", "Origin": origin},
+        )
         if r.status_code != 200:
             die(f"[e2e] 2fa enable failed: {r.status_code} {r.text}")
 
         # Logout
-        r = client.post("/api/auth/logout", json={}, headers={"Content-Type": "application/json"})
+        r = client.post(
+            "/api/auth/logout",
+            json={},
+            headers={"Content-Type": "application/json", "Origin": origin},
+        )
         if r.status_code != 200:
             die(f"[e2e] logout failed: {r.status_code} {r.text}")
 
@@ -108,6 +122,16 @@ def main() -> None:
         r = client.get("/api/users/me")
         if r.status_code != 200:
             die(f"[e2e] me failed after 2fa login: {r.status_code} {r.text}")
+
+        # Anti-replay: the same code must NOT be accepted twice in the same step.
+        client.cookies.clear()
+        r = client.post(
+            "/api/auth/login/2fa",
+            json={"email": email, "password": password, "totp_code": code2},
+            headers={"Content-Type": "application/json"},
+        )
+        if r.status_code == 200:
+            die("[e2e] TOTP replay was accepted (expected rejection)")
 
         print("[e2e] OK")
 

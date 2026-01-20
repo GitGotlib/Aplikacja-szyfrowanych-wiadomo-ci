@@ -12,4 +12,4 @@ mkdir -p "$DATA_DIR"
 chown -R "$APP_UID:$APP_GID" "$DATA_DIR"
 chmod 700 "$DATA_DIR"
 
-exec su -s /bin/sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'" appuser
+exec su -s /bin/sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000" appuser

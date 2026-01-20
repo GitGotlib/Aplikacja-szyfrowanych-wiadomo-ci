@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS users (
   -- 2FA (TOTP) state
   totp_enabled INTEGER NOT NULL DEFAULT 0,
 
+  -- Anti-replay: last accepted TOTP time-step (monotonic counter)
+  totp_last_used_step INTEGER,
+
   -- TOTP secret stored encrypted at rest (AES-256-GCM), encrypted server-side
   totp_secret_enc BLOB,
   totp_secret_nonce BLOB,

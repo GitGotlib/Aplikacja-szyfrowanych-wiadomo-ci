@@ -31,6 +31,9 @@ class User(Base):
     totp_secret_nonce: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
     totp_secret_tag: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
 
+    # Anti-replay: last accepted TOTP time-step counter.
+    totp_last_used_step: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     hmac_key_enc: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
     hmac_key_nonce: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
     hmac_key_tag: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)

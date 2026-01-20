@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import re
 import uuid
 
 from sqlalchemy import and_, select
@@ -21,11 +22,34 @@ def _aad(purpose: str, *parts: str) -> bytes:
 
 
 def _safe_filename(name: str) -> str:
-    # Prevent path traversal in Content-Disposition contexts.
+    # Prevent path traversal and header injection in Content-Disposition contexts.
+    name = (name or "").replace("\x00", "")
     name = name.replace("\\", "/")
     if "/" in name:
         name = name.split("/")[-1]
-    return name[:255]
+
+    # Drop CR/LF and quotes to prevent response splitting / header injection.
+    name = name.replace("\r", "").replace("\n", "").replace('"', "")
+
+    # Keep it filesystem- and header-friendly.
+    name = re.sub(r"[^A-Za-z0-9 ._\-()]+", "_", name).strip()
+    name = name.strip(" .")
+    if not name:
+        name = "attachment"
+    return name[:150]
+
+
+_CT_RE = re.compile(r"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$")
+
+
+def _sanitize_content_type(ct: str | None) -> str:
+    candidate = (ct or "").strip()
+    if not candidate:
+        return "application/octet-stream"
+    candidate = candidate.split(";")[0].strip()  # drop parameters
+    if not _CT_RE.match(candidate):
+        return "application/octet-stream"
+    return candidate[:255]
 
 
 def _encode_len_prefixed(chunks: list[bytes]) -> bytes:
@@ -198,7 +222,7 @@ def send_message(
             id=att_id,
             message_id=message_id,
             filename=_safe_filename(original_filename or "attachment"),
-            content_type=(content_type or "application/octet-stream")[:255],
+            content_type=_sanitize_content_type(content_type),
             size_bytes=len(data),
             blob_ciphertext=enc.ciphertext,
             blob_nonce=enc.nonce,

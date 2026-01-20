@@ -46,6 +46,8 @@ def create_app() -> FastAPI:
 
     # CORS is needed for browser-based frontend.
     allow_origins = _parse_origins(settings.cors_allow_origins)
+    if "*" in allow_origins:
+        raise ValueError("CORS_ALLOW_ORIGINS cannot include '*' when allow_credentials=true")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,

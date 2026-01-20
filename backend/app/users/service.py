@@ -20,7 +20,8 @@ def create_user(db: Session, email: str, username: str, password: str) -> User:
 
     existing = db.execute(select(User).where((User.email == email_norm) | (User.username == username_norm))).scalar_one_or_none()
     if existing is not None:
-        raise ValidationError("User already exists")
+        # Avoid user enumeration via registration endpoint.
+        raise ValidationError("Registration failed")
 
     user_id = str(uuid.uuid4())
 

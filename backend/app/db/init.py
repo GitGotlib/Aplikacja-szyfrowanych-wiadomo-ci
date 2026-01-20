@@ -7,6 +7,17 @@ from pathlib import Path
 from app.core.config import settings
 
 
+def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    rows = conn.execute(f"PRAGMA table_info({table});").fetchall()
+    return any((r[1] == column) for r in rows)
+
+
+def _apply_migrations(conn: sqlite3.Connection) -> None:
+    # schema.sql is authoritative for new DBs; existing DBs need additive migrations.
+    if not _column_exists(conn, "users", "totp_last_used_step"):
+        conn.execute("ALTER TABLE users ADD COLUMN totp_last_used_step INTEGER;")
+
+
 def init_sqlite_schema() -> None:
     """Initialize SQLite schema from the versioned SQL file.
 
@@ -41,6 +52,7 @@ def init_sqlite_schema() -> None:
     try:
         conn.execute("PRAGMA foreign_keys = ON;")
         conn.executescript(sql)
+        _apply_migrations(conn)
         conn.commit()
     finally:
         conn.close()

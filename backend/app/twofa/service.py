@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.exceptions import AuthenticationError, ValidationError
 from app.crypto.aes_gcm import AesGcmCipher
-from app.crypto.totp import generate_totp_secret, provisioning_uri, verify_totp_code
+from app.crypto.totp import generate_totp_secret, provisioning_uri, verify_totp_code_and_step
 from app.db.models import User, utcnow
 
 
@@ -22,6 +22,7 @@ def setup_totp(db: Session, user: User) -> tuple[str, str]:
 
     # not enabled until verified
     user.totp_enabled = False
+    user.totp_last_used_step = None
     user.updated_at = utcnow()
     db.commit()
 
@@ -37,10 +38,13 @@ def enable_totp(db: Session, user: User, code: str) -> None:
     aad = f"users:totp_secret:{user.id}".encode("utf-8")
     secret = cipher.decrypt(user.totp_secret_enc, user.totp_secret_nonce, user.totp_secret_tag, aad=aad).decode("utf-8")
 
-    if not verify_totp_code(secret, code):
+    step = verify_totp_code_and_step(secret, code, valid_window=1)
+    if step is None:
         raise AuthenticationError("invalid")
 
     user.totp_enabled = True
+    # Enrollment verification must not consume a login step.
+    user.totp_last_used_step = None
     user.updated_at = utcnow()
     db.commit()
 
@@ -56,12 +60,13 @@ def disable_totp(db: Session, user: User, code: str) -> None:
     aad = f"users:totp_secret:{user.id}".encode("utf-8")
     secret = cipher.decrypt(user.totp_secret_enc, user.totp_secret_nonce, user.totp_secret_tag, aad=aad).decode("utf-8")
 
-    if not verify_totp_code(secret, code):
+    if verify_totp_code_and_step(secret, code, valid_window=1) is None:
         raise AuthenticationError("invalid")
 
     user.totp_enabled = False
     user.totp_secret_enc = None
     user.totp_secret_nonce = None
     user.totp_secret_tag = None
+    user.totp_last_used_step = None
     user.updated_at = utcnow()
     db.commit()

@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.exceptions import AuthenticationError
 from app.crypto.aes_gcm import AesGcmCipher
-from app.crypto.passwords import verify_password
-from app.crypto.totp import verify_totp_code
+from app.crypto.passwords import hash_password, verify_password
+from app.crypto.totp import verify_totp_code_and_step
 from app.db.models import User, UserSession, utcnow
 from app.users.service import is_locked
 
@@ -22,9 +22,21 @@ def _hash_session_token(token: str) -> bytes:
     return hashlib.sha256(token.encode("utf-8")).digest()
 
 
+_DUMMY_PASSWORD_HASH = hash_password("DummyPass!1234A")
+
+
 def _random_delay_on_failure() -> None:
-    # Deterministic, small delay to make online guessing harder.
-    time.sleep(0.5)
+    # Jittered delay to reduce the value of timing side-channels and slow online guessing.
+    # Keep small enough to not DoS the service itself.
+    time.sleep(0.15 + (secrets.randbelow(300) / 1000.0))
+
+
+def _apply_failed_login(db: Session, user: User) -> None:
+    user.failed_login_count += 1
+    if user.failed_login_count >= settings.max_failed_logins:
+        user.locked_until = utcnow() + dt.timedelta(seconds=settings.lockout_seconds)
+    user.updated_at = utcnow()
+    db.commit()
 
 
 def authenticate_user(
@@ -38,6 +50,8 @@ def authenticate_user(
     # Uniform error surface: always raise AuthenticationError on auth failure.
     user = db.execute(select(User).where(User.email == email.strip().lower())).scalar_one_or_none()
     if user is None:
+        # Spend comparable work to reduce user enumeration via timing.
+        _ = verify_password(password, _DUMMY_PASSWORD_HASH)
         _random_delay_on_failure()
         raise AuthenticationError("invalid")
 
@@ -46,11 +60,7 @@ def authenticate_user(
         raise AuthenticationError("invalid")
 
     if not verify_password(password, user.password_hash):
-        user.failed_login_count += 1
-        if user.failed_login_count >= settings.max_failed_logins:
-            user.locked_until = utcnow() + dt.timedelta(seconds=settings.lockout_seconds)
-        user.updated_at = utcnow()
-        db.commit()
+        _apply_failed_login(db, user)
         _random_delay_on_failure()
         raise AuthenticationError("invalid")
 
@@ -70,12 +80,22 @@ def authenticate_user(
         cipher = AesGcmCipher(settings.totp_kek_bytes)
         aad = f"users:totp_secret:{user.id}".encode("utf-8")
         secret = cipher.decrypt(user.totp_secret_enc, user.totp_secret_nonce, user.totp_secret_tag, aad=aad).decode("utf-8")
-        if not verify_totp_code(secret, totp_code):
-            user.failed_login_count += 1
-            user.updated_at = utcnow()
-            db.commit()
+
+        step = verify_totp_code_and_step(secret, totp_code, valid_window=1)
+        if step is None:
+            _apply_failed_login(db, user)
             _random_delay_on_failure()
             raise AuthenticationError("invalid")
+
+        # Anti-replay: each accepted step can be used only once.
+        if user.totp_last_used_step is not None and step <= user.totp_last_used_step:
+            _apply_failed_login(db, user)
+            _random_delay_on_failure()
+            raise AuthenticationError("invalid")
+
+        user.totp_last_used_step = step
+        user.updated_at = utcnow()
+        db.commit()
 
     # Success: reset counters
     user.failed_login_count = 0

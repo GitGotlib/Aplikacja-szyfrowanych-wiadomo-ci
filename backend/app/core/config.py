@@ -17,9 +17,12 @@ class Settings(BaseSettings):
     sqlite_path: str = Field(default="/var/lib/app/app.sqlite3", alias="SQLITE_PATH")
 
     max_attachment_bytes: int = Field(default=25 * 1024 * 1024, alias="MAX_ATTACHMENT_BYTES")
+    max_attachments_per_message: int = Field(default=10, alias="MAX_ATTACHMENTS_PER_MESSAGE")
     max_recipients_per_message: int = Field(default=25, alias="MAX_RECIPIENTS_PER_MESSAGE")
 
     login_rate_limit_per_minute: int = Field(default=10, alias="LOGIN_RATE_LIMIT_PER_MINUTE")
+    register_rate_limit_per_hour: int = Field(default=20, alias="REGISTER_RATE_LIMIT_PER_HOUR")
+    send_rate_limit_per_minute: int = Field(default=20, alias="SEND_RATE_LIMIT_PER_MINUTE")
 
     cookie_secure: bool = Field(default=True, alias="COOKIE_SECURE")
     cookie_samesite: str = Field(default="strict", alias="COOKIE_SAMESITE")
