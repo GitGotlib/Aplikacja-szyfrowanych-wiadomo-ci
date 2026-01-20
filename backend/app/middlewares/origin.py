@@ -1,0 +1,22 @@
+from __future__ import annotations
+
+from fastapi import Request
+
+from app.core.config import settings
+from app.core.exceptions import AuthorizationError
+
+
+def _normalize_origin(origin: str) -> str:
+    return origin.rstrip("/")
+
+
+async def origin_check_middleware(request: Request, call_next):
+    # When using cookie-based auth, protect state-changing methods against CSRF
+    # via strict Origin checking. This assumes frontend is served from PUBLIC_BASE_URL.
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        origin = request.headers.get("Origin")
+        if origin is not None:
+            if _normalize_origin(origin) != _normalize_origin(str(settings.public_base_url)):
+                raise AuthorizationError("Invalid origin")
+
+    return await call_next(request)
